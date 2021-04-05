@@ -1,0 +1,12 @@
+# Nouns API
+export NOUNS_API=http://API_URL
+
+# ElasticSearch
+export ELS_HOST=http://IP:PORT
+export ELS_USER=
+export ELS_PASSWORD=
+export ELS_INDEX=
+
+# Kafka
+export BROKER=IP:PORT
+export TOPICS=TOPIC_1,TOPIC_2
