@@ -10,3 +10,4 @@ export ELS_INDEX=
 # Kafka
 export BROKER=IP:PORT
 export TOPICS=TOPIC_1,TOPIC_2
+export ConsumerGroup=
