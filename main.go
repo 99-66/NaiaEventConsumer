@@ -66,7 +66,7 @@ func main() {
 						// 1. 텍스트를 명사로 추출한다
 						words, err := controllers.NounsExtract(eventVal.Text, nounsConfig.Url)
 						if err != nil {
-							fmt.Printf("extract failed to nouns. %s\n", err)
+							fmt.Printf("extract failed to nouns. %v\t%s\n", eventVal, err)
 						}
 						// 2. 추출한 명사별로 ElasticSearch에 저장한다
 						for _, word := range words {
