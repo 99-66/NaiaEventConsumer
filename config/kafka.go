@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"github.com/Shopify/sarama"
 	cluster "github.com/bsm/sarama-cluster"
 	"github.com/caarlos0/env"
 	"time"
@@ -16,6 +17,7 @@ type Kafka struct {
 func newKafka(kConfig Kafka) (*cluster.Consumer, error){
 	conf := cluster.NewConfig()
 	conf.Consumer.Return.Errors = true
+	conf.Consumer.Offsets.Initial = sarama.OffsetOldest
 	conf.Group.Return.Notifications = true
 	conf.Consumer.Offsets.CommitInterval = time.Second
 
