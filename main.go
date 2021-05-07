@@ -69,10 +69,7 @@ func main() {
 						fmt.Printf("extract failed to nouns. %v\t%s\n", eventVal, err)
 					} else {
 						// 2. 추출한 명사를 인덱스에 저장한다
-						err = controllers.InsertElasticsearch(es, words, eventVal)
-						if err != nil {
-							log.Printf("an error occurred while elasticsearch inserts. %+v\n", err)
-						}
+						controllers.InsertElasticsearch(es, words, eventVal)
 					}
 				}()
 				// 메시지를 처리한 것으로 마킹한다

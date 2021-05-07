@@ -8,14 +8,13 @@ import (
 )
 
 type Nouns struct {
-	Idxs []int `json:"idxs"`
-	Txts []string `json:"txts"`
+	Idxs  []int      `json:"idxs"`
+	Txts  []string   `json:"txts"`
 	Nouns [][]string `json:"nouns"`
 }
 
-
 // Extract API로 텍스트에서 명사 추출을 요청한다
-func (n *Nouns) Extract(url string) ([]string, error){
+func (n *Nouns) Extract(url string) ([]string, error) {
 	// Request Body를 마샬링한다
 	nbJson, err := json.Marshal(n)
 	if err != nil {
@@ -47,7 +46,6 @@ func (n *Nouns) Extract(url string) ([]string, error){
 	return words, nil
 }
 
-
 // NounsExtract 단일 텍스트 문장에서 명사를 추출한다(텍스트 단일로 요청)
 func NounsExtract(text string, url string) ([]string, error) {
 	// 텍스트를 API로 요청하기 위해 Request Body를 만든다
@@ -59,7 +57,7 @@ func NounsExtract(text string, url string) ([]string, error) {
 	return nouns.Extract(url)
 }
 
-// NounsExtract 복수 텍스트 문장에서 명사를 추출한다
+// NounsExtracts 복수 텍스트 문장에서 명사를 추출한다
 func NounsExtracts(text []string, url string) ([]string, error) {
 	// 텍스트들을 API로 요청하기 위해 Request Body를 만든다
 	var nouns Nouns
