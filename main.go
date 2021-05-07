@@ -52,36 +52,35 @@ func main() {
 	// 컨슈머로 메시지(이벤트)를 가져온다
 	for {
 		select {
-			case msg, ok := <- consumer.Messages():
-				if ok {
-					// 컨슈머에서 읽어온 메시지를 언마샬링한다
-					var eventVal models.Event
-					err = json.Unmarshal(msg.Value, &eventVal)
-					if err != nil {
-						log.Printf("event failed unmarshling, %s\n", msg.Value)
-					}
-
-					// 메시지 처리
-					go func() {
-						// 1. 텍스트를 명사로 추출한다
-						words, err := controllers.NounsExtract(eventVal.Text, nounsConfig.Url)
-						if err != nil {
-							fmt.Printf("extract failed to nouns. %v\t%s\n", eventVal, err)
-						}
-						// 2. 추출한 명사별로 ElasticSearch에 저장한다
-						for _, word := range words {
-							err = controllers.InsertElasticSearch(es, word, eventVal)
-							if err != nil {
-								log.Printf("an error occurred while elasticsearch insert. %s\n", err)
-							}
-						}
-					}()
-					// 메시지를 처리한 것으로 마킹한다
-					consumer.MarkOffset(msg, "")
+		case msg, ok := <-consumer.Messages():
+			if ok {
+				// 컨슈머에서 읽어온 메시지를 언마샬링한다
+				var eventVal models.Event
+				err = json.Unmarshal(msg.Value, &eventVal)
+				if err != nil {
+					log.Printf("event failed unmarshling, %s\n", msg.Value)
 				}
-			case <-signals:
-				// 종료 시그널(인터럽트)가 들어오면 종료한다
-				return
+
+				// 메시지 처리
+				go func() {
+					// 1. 텍스트를 명사로 추출한다
+					words, err := controllers.NounsExtract(eventVal.Text, nounsConfig.Url)
+					if err != nil {
+						fmt.Printf("extract failed to nouns. %v\t%s\n", eventVal, err)
+					} else {
+						// 2. 추출한 명사를 인덱스에 저장한다
+						err = controllers.InsertElasticsearch(es, words, eventVal)
+						if err != nil {
+							log.Printf("an error occurred while elasticsearch inserts. %+v\n", err)
+						}
+					}
+				}()
+				// 메시지를 처리한 것으로 마킹한다
+				consumer.MarkOffset(msg, "")
+			}
+		case <-signals:
+			// 종료 시그널(인터럽트)가 들어오면 종료한다
+			return
 		}
 	}
 }

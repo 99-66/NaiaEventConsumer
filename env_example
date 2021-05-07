@@ -5,7 +5,8 @@ export NOUNS_API=http://API_URL
 export ELS_HOST=http://IP:PORT
 export ELS_USER=
 export ELS_PASSWORD=
-export ELS_INDEX=
+export ELS_WIN_INDEX=
+export ELS_TEXT_INDEX=
 
 # Kafka
 export BROKER=IP:PORT
