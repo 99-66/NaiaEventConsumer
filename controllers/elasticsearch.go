@@ -5,13 +5,16 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/99-66/NaiaEventConsumer/models"
 	"github.com/elastic/go-elasticsearch/v7"
 	"github.com/elastic/go-elasticsearch/v7/esapi"
 	"github.com/elastic/go-elasticsearch/v7/esutil"
 	"log"
 	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"sync"
 	"time"
 )
 
@@ -32,27 +35,27 @@ type WINWords struct {
 	Text               string   `json:"text"`
 }
 
-func InsertElasticsearch(es *elasticsearch.Client, words []string, event models.Event) error {
-	err := insertToTextIndex(es, words, &event)
-	if err != nil {
-		return fmt.Errorf("TEXT: %s\n", err)
-	}
+func InsertElasticsearch(es *elasticsearch.Client, words []string, event models.Event) {
+	var wg sync.WaitGroup
+	wg.Add(2)
 
-	err = insertToWINIndex(es, words, &event)
-	if err != nil {
-		return fmt.Errorf("WIN: %s\n", err)
-	}
+	go insertToTextIndex(&wg, es, words, &event)
+	go insertToWINIndex(&wg, es, words, &event)
 
-	return nil
+	wg.Wait()
 }
 
-func insertToWINIndex(es *elasticsearch.Client, words []string, event *models.Event) error {
+func insertToWINIndex(wg *sync.WaitGroup, es *elasticsearch.Client, words []string, event *models.Event) {
+	fn := functionName()
+	defer wg.Done()
+
 	index := os.Getenv("ELS_WIN_INDEX")
 
 	// 메시지 생성일로 타임스탬프를 만든다
 	createdAtTimestamp, err := time.Parse(time.RFC3339, event.CreatedAt)
 	if err != nil {
-		panic(err)
+		log.Printf("ERROR %s %s\n", fn, err)
+		runtime.Goexit()
 	}
 
 	// Words 단어 목록들을 bulk index로 저장한다
@@ -62,7 +65,8 @@ func insertToWINIndex(es *elasticsearch.Client, words []string, event *models.Ev
 		Client: es,
 	})
 	if err != nil {
-		return err
+		log.Printf("ERROR %s %s\n", fn, err)
+		runtime.Goexit()
 	}
 
 	for _, word := range words {
@@ -75,7 +79,8 @@ func insertToWINIndex(es *elasticsearch.Client, words []string, event *models.Ev
 			Word:               word,
 		})
 		if err != nil {
-			log.Printf("Cannot encode win word event %+v\n", event)
+			log.Printf("ERRPR %s Cannot encode win word event %+v\n", fn, event)
+			runtime.Goexit()
 		}
 
 		// BulkIndexer에 데이터 추가
@@ -86,32 +91,36 @@ func insertToWINIndex(es *elasticsearch.Client, words []string, event *models.Ev
 				Body:   bytes.NewReader(winData),
 				OnFailure: func(ctx context.Context, item esutil.BulkIndexerItem, res esutil.BulkIndexerResponseItem, err error) {
 					if err != nil {
-						log.Printf("ERROR: %s", err)
+						log.Printf("ERROR %s %s\n", fn, err)
 					} else {
-						log.Printf("ERROR: %s: %s", res.Error.Type, res.Error.Reason)
+						log.Fatalf("ERROR %s %s %s\n", fn, res.Error.Type, res.Error.Reason)
 					}
 				},
 			},
 		)
 		if err != nil {
-			return err
+			log.Printf("ERROR %s %s\n", fn, err)
+			runtime.Goexit()
 		}
 	}
 
 	if err := bi.Close(context.Background()); err != nil {
-		return err
+		log.Printf("ERROR: %s\n", err)
+		runtime.Goexit()
 	}
-
-	return nil
 }
 
-func insertToTextIndex(es *elasticsearch.Client, words []string, event *models.Event) error {
+func insertToTextIndex(wg *sync.WaitGroup, es *elasticsearch.Client, words []string, event *models.Event) {
+	fn := functionName()
+	defer wg.Done()
+
 	textIndex := os.Getenv("ELS_TEXT_INDEX")
 
 	// 메시지 생성일로 타임스탬프를 만든다
 	createdAtTimestamp, err := time.Parse(time.RFC3339, event.CreatedAt)
 	if err != nil {
-		panic(err)
+		log.Printf("ERROR %s %s\n", fn, err)
+		runtime.Goexit()
 	}
 
 	// Words 단어 목록을 index로 저장한다
@@ -134,13 +143,27 @@ func insertToTextIndex(es *elasticsearch.Client, words []string, event *models.E
 	// ElasticSearch에 데이터를 저장한다
 	resp, err := req.Do(context.Background(), es)
 	if err != nil {
-		return err
+		log.Printf("ERROR %s %s\n", fn, err)
+		runtime.Goexit()
 	}
 	defer resp.Body.Close()
 
 	if resp.IsError() {
-		return errors.New(resp.String())
+		log.Printf("ERRPR %s %s\n", fn, errors.New(resp.String()))
+	}
+}
+
+func functionName() (fnName string) {
+	pc, _, _, _ := runtime.Caller(1)
+
+	fn := runtime.FuncForPC(pc)
+
+	if fn == nil {
+		fnName = "?()"
+	} else {
+		dotName := filepath.Ext(fn.Name())
+		fnName = strings.TrimLeft(dotName, ".") + "()"
 	}
 
-	return nil
+	return fnName
 }
